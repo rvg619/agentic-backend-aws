@@ -75,12 +75,6 @@ public class TaskService {
                 task.setStatus(Task.TaskStatus.PROCESSING_AI);
                 taskRepository.save(task);
 
-                // Analyze the task
-                Map<String, String> analysis = aiService.analyzeTask(task.getDescription());
-                
-                // Generate task plan
-                String plan = aiService.generateTaskPlan(task.getDescription());
-                
                 // Create AI prompt and get response
                 String prompt = String.format("Task: %s\nDescription: %s\nPlease provide a detailed solution.",
                         task.getTitle(), task.getDescription());

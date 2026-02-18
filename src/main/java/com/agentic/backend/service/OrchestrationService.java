@@ -54,8 +54,10 @@ public class OrchestrationService {
 
                 int completed = 0;
                 int failed = 0;
+                int updateInterval = Math.max(1, pendingTasks.size() / 10); // Update every 10% of tasks
 
-                for (Task task : pendingTasks) {
+                for (int i = 0; i < pendingTasks.size(); i++) {
+                    Task task = pendingTasks.get(i);
                     try {
                         taskService.processTaskWithAI(task.getId());
                         completed++;
@@ -64,9 +66,12 @@ public class OrchestrationService {
                         failed++;
                     }
                     
-                    orchestration.setCompletedTasks(completed);
-                    orchestration.setFailedTasks(failed);
-                    orchestrationRepository.save(orchestration);
+                    // Batch updates to reduce database writes
+                    if (i % updateInterval == 0 || i == pendingTasks.size() - 1) {
+                        orchestration.setCompletedTasks(completed);
+                        orchestration.setFailedTasks(failed);
+                        orchestrationRepository.save(orchestration);
+                    }
                 }
 
                 orchestration.setStatus(Orchestration.OrchestrationStatus.COMPLETED);
