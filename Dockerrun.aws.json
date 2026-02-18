@@ -1,0 +1,20 @@
+{
+  "AWSEBDockerrunVersion": "1",
+  "Image": {
+    "Name": "your-ecr-repo/agentic-backend-aws:latest",
+    "Update": "true"
+  },
+  "Ports": [
+    {
+      "ContainerPort": 8080,
+      "HostPort": 8080
+    }
+  ],
+  "Logging": "/var/log/agentic-backend",
+  "Environment": [
+    {
+      "Name": "SPRING_PROFILES_ACTIVE",
+      "Value": "prod"
+    }
+  ]
+}
