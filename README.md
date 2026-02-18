@@ -20,4 +20,4 @@ It demonstrates how to design and operate an **asynchronous, multi-step AI workf
 - PostgreSQL
 - Docker, GitHub Actions
 - AWS: ECS Fargate, ECR, RDS, S3, CloudWatch
-- (Optional) React dashboard
+- React dashboard
