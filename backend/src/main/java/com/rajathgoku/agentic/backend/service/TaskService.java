@@ -7,6 +7,7 @@ import com.rajathgoku.agentic.backend.repository.TaskRepository;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class TaskService {
@@ -15,33 +16,28 @@ public class TaskService {
     private TaskRepository repository;
 
     private final List<Task> tasks = new ArrayList<>();
-    private Long nextId = 1L;
 
     public Task createTask(Task task) {
-        task.setId(nextId++);
         tasks.add(task);
         return task;
     }
 
     public List<Task> getAllTasks() {
-        return tasks;
+        return repository.findAll();
     }
 
-    public Task getTaskById(Long id) {
-        return tasks.stream()
-                .filter(task -> task.getId().equals(id))
-                .findFirst()
-                .orElse(null);
+    public Task getTaskById(UUID id) {
+        return repository.findById(id).orElse(null);
     }
 
-    public void deleteTaskById(Long id) {
-        tasks.removeIf(task -> task.getId().equals(id));
+    public void deleteTaskById(UUID id) {
+        repository.deleteById(id);
     }
+    
     public Task create(String title) {
         Task task = new Task();
         task.setTitle(title);
         task.setStatus("PENDING");
         return repository.save(task);
     }
-    
 }

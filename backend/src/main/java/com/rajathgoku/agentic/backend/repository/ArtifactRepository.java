@@ -7,14 +7,15 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.UUID;
 
 @Repository
-public interface ArtifactRepository extends JpaRepository<Artifact, Long> {
+public interface ArtifactRepository extends JpaRepository<Artifact, UUID> {
     
-    List<Artifact> findByStepIdOrderByCreatedAt(Long stepId);
+    List<Artifact> findByStepIdOrderByCreatedAt(UUID stepId);
     
     @Query("SELECT a FROM Artifact a WHERE a.step.id = :stepId ORDER BY a.createdAt ASC")
-    List<Artifact> findArtifactsByStepId(@Param("stepId") Long stepId);
+    List<Artifact> findArtifactsByStepId(@Param("stepId") UUID stepId);
     
     List<Artifact> findByType(String type);
 }

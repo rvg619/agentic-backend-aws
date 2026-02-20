@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -37,7 +38,7 @@ public class TaskController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TaskResponse> getTaskById(@PathVariable Long id) {
+    public ResponseEntity<TaskResponse> getTaskById(@PathVariable UUID id) {
         Task task = taskService.getTaskById(id);
         if (task != null) {
             return ResponseEntity.ok(toResponse(task));
@@ -47,7 +48,7 @@ public class TaskController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTaskById(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteTaskById(@PathVariable UUID id) {
         taskService.deleteTaskById(id);
         return ResponseEntity.noContent().build();
     }
@@ -58,6 +59,7 @@ public class TaskController {
         r.setTitle(task.getTitle());
         r.setStatus(task.getStatus());
         r.setCreatedAt(task.getCreatedAt());
+        r.setUpdatedAt(task.getUpdatedAt());
         return r;
     }
 }

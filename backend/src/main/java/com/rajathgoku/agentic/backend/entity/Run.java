@@ -4,17 +4,24 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
-@Table(name = "runs")
+@Table(name = "runs", indexes = {
+    @Index(name = "idx_runs_status_created", columnList = "status, created_at"),
+    @Index(name = "idx_runs_task_id", columnList = "task_id"),
+    @Index(name = "idx_runs_claimed_by", columnList = "claimed_by"),
+    @Index(name = "idx_runs_id", columnList = "id")
+})
 public class Run {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "UUID")
+    private UUID id;
 
-    @Column(nullable = false)
-    private Long taskId;
+    @Column(name = "task_id", nullable = false, columnDefinition = "UUID")
+    private UUID taskId;
 
     @OneToMany(mappedBy = "run", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Step> steps = new ArrayList<>();
@@ -23,38 +30,71 @@ public class Run {
     @Column(nullable = false)
     private RunStatus status;
 
-    @Column(nullable = false)
+    @Column(name = "claimed_by")
+    private String claimedBy;
+
+    @Column(name = "started_at")
+    private Instant startedAt;
+
+    @Column(name = "finished_at")
+    private Instant finishedAt;
+
+    @Column(name = "error_message", columnDefinition = "TEXT")
+    private String errorMessage;
+
+    @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
-
-    public enum RunStatus {
-        PENDING, RUNNING, DONE, FAILED
-    }
 
     // Constructors
     public Run() {}
 
-    public Run(Long taskId, RunStatus status) {
+    public Run(UUID taskId, RunStatus status) {
         this.taskId = taskId;
         this.status = status;
     }
 
+    // Helper methods for state transitions
+    public void markAsRunning(String claimedBy) {
+        this.status = RunStatus.RUNNING;
+        this.claimedBy = claimedBy;
+        this.startedAt = Instant.now();
+        this.updatedAt = Instant.now();
+    }
+
+    public void markAsCompleted() {
+        this.status = RunStatus.DONE;
+        this.finishedAt = Instant.now();
+        this.updatedAt = Instant.now();
+    }
+
+    public void markAsFailed(String errorMessage) {
+        this.status = RunStatus.FAILED;
+        this.errorMessage = errorMessage;
+        this.finishedAt = Instant.now();
+        this.updatedAt = Instant.now();
+    }
+
+    public boolean canBeClaimed() {
+        return status == RunStatus.PENDING;
+    }
+
     // Getters and Setters
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(UUID id) {
         this.id = id;
     }
 
-    public Long getTaskId() {
+    public UUID getTaskId() {
         return taskId;
     }
 
-    public void setTaskId(Long taskId) {
+    public void setTaskId(UUID taskId) {
         this.taskId = taskId;
     }
 
@@ -73,6 +113,38 @@ public class Run {
     public void setStatus(RunStatus status) {
         this.status = status;
         this.updatedAt = Instant.now();
+    }
+
+    public String getClaimedBy() {
+        return claimedBy;
+    }
+
+    public void setClaimedBy(String claimedBy) {
+        this.claimedBy = claimedBy;
+    }
+
+    public Instant getStartedAt() {
+        return startedAt;
+    }
+
+    public void setStartedAt(Instant startedAt) {
+        this.startedAt = startedAt;
+    }
+
+    public Instant getFinishedAt() {
+        return finishedAt;
+    }
+
+    public void setFinishedAt(Instant finishedAt) {
+        this.finishedAt = finishedAt;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
     }
 
     public Instant getCreatedAt() {

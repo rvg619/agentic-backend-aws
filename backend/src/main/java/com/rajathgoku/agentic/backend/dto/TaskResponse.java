@@ -1,20 +1,21 @@
-
 package com.rajathgoku.agentic.backend.dto;
 
 import java.time.Instant;
+import java.util.UUID;
 
 public class TaskResponse {
 
-    private Long id;
+    private UUID id;
     private String title;
     private String status;
     private Instant createdAt;
+    private Instant updatedAt;
 
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(UUID id) {
         this.id = id;
     }
 
@@ -40,5 +41,13 @@ public class TaskResponse {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

@@ -4,14 +4,21 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
-@Table(name = "steps")
+@Table(name = "steps", indexes = {
+    @Index(name = "idx_steps_run_id", columnList = "run_id"),
+    @Index(name = "idx_steps_status", columnList = "status"),
+    @Index(name = "idx_steps_id", columnList = "id"),
+    @Index(name = "idx_steps_created_at", columnList = "created_at")
+})
 public class Step {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "UUID")
+    private UUID id;
 
     @Column(nullable = false)
     private String name;
@@ -20,7 +27,7 @@ public class Step {
     private String description;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "run_id", nullable = false)
+    @JoinColumn(name = "run_id", nullable = false, columnDefinition = "UUID")
     private Run run;
 
     @OneToMany(mappedBy = "step", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -30,19 +37,17 @@ public class Step {
     @Column(nullable = false)
     private StepStatus status = StepStatus.PENDING;
 
+    @Column(name = "started_at")
     private Instant startedAt;
 
+    @Column(name = "finished_at")
     private Instant finishedAt;
 
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
-    @Column(nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
-
-    public enum StepStatus {
-        PENDING, RUNNING, DONE, FAILED, SKIPPED
-    }
 
     // Constructors
     public Step() {}
@@ -54,11 +59,11 @@ public class Step {
     }
 
     // Getters and Setters
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(UUID id) {
         this.id = id;
     }
 

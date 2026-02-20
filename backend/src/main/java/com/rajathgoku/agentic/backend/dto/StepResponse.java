@@ -3,10 +3,11 @@ package com.rajathgoku.agentic.backend.dto;
 import com.rajathgoku.agentic.backend.entity.Step;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class StepResponse {
-    private Long id;
+    private UUID id;
     private String name;
     private String description;
     private String status;
@@ -30,11 +31,11 @@ public class StepResponse {
     }
 
     // Getters and Setters
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(UUID id) {
         this.id = id;
     }
 

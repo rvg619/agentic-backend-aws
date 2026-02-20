@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: agentic-postgres
+    environment:
+      POSTGRES_DB: agentic
+      POSTGRES_USER: agentic
+      POSTGRES_PASSWORD: agentic
+    ports:
+      - "5432:5432"
+    volumes:
+      - agentic_pg_data:/var/lib/postgresql/data
+
+volumes:
+  agentic_pg_data:

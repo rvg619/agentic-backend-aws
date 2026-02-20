@@ -1,7 +1,9 @@
 package com.rajathgoku.agentic.backend.engine;
 
 import com.rajathgoku.agentic.backend.entity.Run;
+import com.rajathgoku.agentic.backend.entity.RunStatus;
 import com.rajathgoku.agentic.backend.entity.Step;
+import com.rajathgoku.agentic.backend.entity.StepStatus;
 import com.rajathgoku.agentic.backend.entity.Artifact;
 import com.rajathgoku.agentic.backend.service.RunService;
 import com.rajathgoku.agentic.backend.repository.RunRepository;
@@ -14,9 +16,12 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -44,187 +49,219 @@ public class RunOrchestrator {
     private volatile boolean isRunning = true;
 
     /**
-     * Scheduled method that polls for PENDING runs every 5 seconds
-     * and processes them asynchronously
+     * Scheduled method that claims PENDING runs every 3 seconds
+     * Uses atomic claiming to prevent double processing
      */
-    @Scheduled(fixedDelay = 5000) // Poll every 5 seconds
-    public void pollAndProcessRuns() {
+    @Scheduled(fixedDelay = 3000) // Poll every 3 seconds
+    public void pollAndClaimRuns() {
         if (!isRunning) {
             return;
         }
 
         try {
-            List<Run> pendingRuns = runService.getRunsByStatus(Run.RunStatus.PENDING);
+            // Attempt to atomically claim one PENDING run
+            Optional<Run> claimedRun = runService.claimNextPendingRun();
             
-            if (!pendingRuns.isEmpty()) {
-                logger.info("Found {} PENDING runs to process", pendingRuns.size());
-                
-                for (Run run : pendingRuns) {
-                    processRunAsync(run);
-                }
+            if (claimedRun.isPresent()) {
+                logger.info("Claimed run ID: {} for processing", claimedRun.get().getId());
+                processRunAsync(claimedRun.get());
             } else {
-                logger.debug("No PENDING runs found");
+                logger.debug("No PENDING runs available to claim");
             }
+            
         } catch (Exception e) {
             logger.error("Error while polling for runs: {}", e.getMessage(), e);
         }
     }
 
     /**
-     * Processes a single run asynchronously
+     * Cleanup stale runs every 2 minutes
+     */
+    @Scheduled(fixedDelay = 120000) // Every 2 minutes
+    public void cleanupStaleRuns() {
+        try {
+            runService.cleanupStaleRuns(Duration.ofMinutes(10)); // Cleanup runs older than 10 minutes
+        } catch (Exception e) {
+            logger.error("Error during stale run cleanup: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Processes a single run asynchronously with comprehensive execution trace
      */
     @Async
+    @Transactional
     public CompletableFuture<Void> processRunAsync(Run run) {
-        logger.info("Starting async processing of run ID: {}", run.getId());
+        logger.info("Starting async processing of claimed run ID: {}", run.getId());
         
-        Step currentStep = null;
+        Step planningStep = null;
+        Step executionStep = null;
+        Step validationStep = null;
         
         try {
-            // Mark the run as RUNNING
-            run.setStatus(Run.RunStatus.RUNNING);
-            runRepository.save(run);
-            logger.info("Run ID: {} marked as RUNNING", run.getId());
+            // === PLANNING PHASE ===
+            planningStep = createStep("Planning", "Analyzing task and creating execution plan", run);
+            planningStep.setStatus(StepStatus.RUNNING);
+            stepRepository.save(planningStep);
+            logger.info("Started planning step ID: {} for run ID: {}", planningStep.getId(), run.getId());
 
-            // Create a Step entity for this execution
-            currentStep = new Step();
-            currentStep.setName("Main execution step");
-            currentStep.setDescription("Processing run ID: " + run.getId());
-            currentStep.setRun(run);
-            currentStep.setStatus(Step.StepStatus.RUNNING);
-            currentStep.setStartedAt(Instant.now());
-            currentStep = stepRepository.save(currentStep);
-            logger.info("Created step ID: {} for run ID: {}", currentStep.getId(), run.getId());
+            // Simulate planning work
+            Thread.sleep(1000);
+            
+            // Create planning artifacts
+            createArtifact("execution_plan", "TEXT", 
+                          "Execution plan for task " + run.getTaskId() + ":\n1. Analyze requirements\n2. Execute main logic\n3. Validate results", 
+                          planningStep);
+            
+            planningStep.setStatus(StepStatus.DONE);
+            planningStep.setFinishedAt(Instant.now());
+            stepRepository.save(planningStep);
+            logger.info("Completed planning step ID: {}", planningStep.getId());
 
-            // Simulate work - sleep for 2-3 seconds
+            // === EXECUTION PHASE ===
+            executionStep = createStep("Execution", "Main task execution", run);
+            executionStep.setStatus(StepStatus.RUNNING);
+            stepRepository.save(executionStep);
+            logger.info("Started execution step ID: {} for run ID: {}", executionStep.getId(), run.getId());
+
+            // Simulate main work
             Thread.sleep(2000);
-            logger.info("Run ID: {} - work simulation completed", run.getId());
+            
+            // Create execution artifacts
+            String resultData = "Task " + run.getTaskId() + " executed successfully at " + Instant.now() + 
+                               " by instance " + runService.getInstanceId();
+            createArtifact("execution_result", "TEXT", resultData, executionStep);
+            
+            // Create a JSON artifact with structured data
+            String jsonResult = String.format(
+                "{\"taskId\": \"%s\", \"runId\": \"%s\", \"timestamp\": \"%s\", \"status\": \"success\", \"processingTime\": \"2000ms\"}",
+                run.getTaskId(), run.getId(), Instant.now()
+            );
+            createArtifact("result_metadata", "JSON", jsonResult, executionStep);
+            
+            executionStep.setStatus(StepStatus.DONE);
+            executionStep.setFinishedAt(Instant.now());
+            stepRepository.save(executionStep);
+            logger.info("Completed execution step ID: {}", executionStep.getId());
 
-            // Finish Step
-            currentStep.setStatus(Step.StepStatus.DONE);
-            currentStep.setFinishedAt(Instant.now());
-            stepRepository.save(currentStep);
-            logger.info("Step ID: {} marked as DONE", currentStep.getId());
+            // === VALIDATION PHASE ===
+            validationStep = createStep("Validation", "Validating execution results", run);
+            validationStep.setStatus(StepStatus.RUNNING);
+            stepRepository.save(validationStep);
+            logger.info("Started validation step ID: {} for run ID: {}", validationStep.getId(), run.getId());
 
-            // Create an Artifact with the result
-            Artifact resultArtifact = new Artifact();
-            resultArtifact.setName("execution_result");
-            resultArtifact.setType("TEXT");
-            resultArtifact.setContent("Hello from step execution! Run " + run.getId() + 
-                                    " executed successfully at " + Instant.now().toString() + 
-                                    ". Task ID: " + run.getTaskId());
-            resultArtifact.setStep(currentStep);
-            resultArtifact.setCreatedAt(Instant.now());
-            resultArtifact.setSize((long) resultArtifact.getContent().length());
-            artifactRepository.save(resultArtifact);
-            logger.info("Created artifact ID: {} for step ID: {}", resultArtifact.getId(), currentStep.getId());
+            // Simulate validation
+            Thread.sleep(500);
+            
+            // Create validation artifacts
+            createArtifact("validation_report", "TEXT", 
+                          "Validation completed successfully. All checks passed.", validationStep);
+            
+            validationStep.setStatus(StepStatus.DONE);
+            validationStep.setFinishedAt(Instant.now());
+            stepRepository.save(validationStep);
+            logger.info("Completed validation step ID: {}", validationStep.getId());
 
-            // Mark the run as DONE
-            run.setStatus(Run.RunStatus.DONE);
-            runRepository.save(run);
-            logger.info("Run ID: {} marked as DONE", run.getId());
+            // Mark the entire run as completed
+            runService.markRunAsCompleted(run.getId());
+            logger.info("Successfully completed run ID: {} with {} steps", run.getId(), 3);
 
         } catch (InterruptedException e) {
             logger.warn("Run ID: {} was interrupted, marking as FAILED", run.getId());
             
-            // Mark step as FAILED if it exists
-            if (currentStep != null) {
-                currentStep.setStatus(Step.StepStatus.FAILED);
-                currentStep.setFinishedAt(Instant.now());
-                stepRepository.save(currentStep);
-                
-                // Create error artifact
-                Artifact errorArtifact = new Artifact();
-                errorArtifact.setName("error_result");
-                errorArtifact.setType("TEXT");
-                errorArtifact.setContent("Run " + run.getId() + " was interrupted: " + e.getMessage());
-                errorArtifact.setStep(currentStep);
-                errorArtifact.setCreatedAt(Instant.now());
-                errorArtifact.setSize((long) errorArtifact.getContent().length());
-                artifactRepository.save(errorArtifact);
-            }
+            handleStepFailure(planningStep, "Run was interrupted: " + e.getMessage());
+            handleStepFailure(executionStep, "Run was interrupted: " + e.getMessage());
+            handleStepFailure(validationStep, "Run was interrupted: " + e.getMessage());
             
-            run.setStatus(Run.RunStatus.FAILED);
-            runRepository.save(run);
+            runService.markRunAsFailed(run.getId(), "Run was interrupted: " + e.getMessage());
             Thread.currentThread().interrupt();
+            
         } catch (Exception e) {
             logger.error("Error processing run ID: {}, marking as FAILED. Error: {}", 
                         run.getId(), e.getMessage(), e);
             
-            // Mark step as FAILED if it exists
-            if (currentStep != null) {
-                currentStep.setStatus(Step.StepStatus.FAILED);
-                currentStep.setFinishedAt(Instant.now());
-                stepRepository.save(currentStep);
-                
-                // Create error artifact
-                Artifact errorArtifact = new Artifact();
-                errorArtifact.setName("error_result");
-                errorArtifact.setType("TEXT");
-                errorArtifact.setContent("Run " + run.getId() + " failed with error: " + e.getMessage());
-                errorArtifact.setStep(currentStep);
-                errorArtifact.setCreatedAt(Instant.now());
-                errorArtifact.setSize((long) errorArtifact.getContent().length());
-                artifactRepository.save(errorArtifact);
-            }
+            handleStepFailure(planningStep, "Execution failed: " + e.getMessage());
+            handleStepFailure(executionStep, "Execution failed: " + e.getMessage());
+            handleStepFailure(validationStep, "Execution failed: " + e.getMessage());
             
-            run.setStatus(Run.RunStatus.FAILED);
-            runRepository.save(run);
+            runService.markRunAsFailed(run.getId(), "Execution failed: " + e.getMessage());
         }
 
         return CompletableFuture.completedFuture(null);
     }
 
+    private Step createStep(String name, String description, Run run) {
+        Step step = new Step(name, description, run);
+        step.setStartedAt(Instant.now());
+        return stepRepository.save(step);
+    }
+
+    private Artifact createArtifact(String name, String type, String content, Step step) {
+        Artifact artifact = new Artifact(name, type, content, step);
+        artifact.setSize((long) content.length());
+        Artifact saved = artifactRepository.save(artifact);
+        logger.debug("Created artifact ID: {} ({}) for step ID: {}", 
+                    saved.getId(), name, step.getId());
+        return saved;
+    }
+
+    private void handleStepFailure(Step step, String errorMessage) {
+        if (step != null && step.getStatus() == StepStatus.RUNNING) {
+            step.setStatus(StepStatus.FAILED);
+            step.setFinishedAt(Instant.now());
+            stepRepository.save(step);
+            
+            // Create error artifact
+            createArtifact("error_details", "TEXT", errorMessage, step);
+            logger.info("Marked step ID: {} as FAILED", step.getId());
+        }
+    }
+
     /**
      * Manually process a specific run (can be called from external services)
      */
-    public void processRun(Long runId) {
+    public void processRun(UUID runId) {
         try {
-            Run run = runService.getRunById(runId).orElse(null);
-            if (run != null && run.getStatus() == Run.RunStatus.PENDING) {
-                processRunAsync(run);
-            } else if (run == null) {
-                logger.warn("Run ID: {} not found", runId);
+            Optional<Run> runOpt = runService.getRunById(runId);
+            if (runOpt.isPresent()) {
+                Run run = runOpt.get();
+                if (run.canBeClaimed()) {
+                    // Try to claim and process
+                    run.markAsRunning(runService.getInstanceId());
+                    runRepository.save(run);
+                    processRunAsync(run);
+                } else {
+                    logger.warn("Run ID: {} cannot be claimed, current status: {}", 
+                               runId, run.getStatus());
+                }
             } else {
-                logger.warn("Run ID: {} is not in PENDING status, current status: {}", 
-                           runId, run.getStatus());
+                logger.warn("Run ID: {} not found", runId);
             }
         } catch (Exception e) {
             logger.error("Error manually processing run ID: {}, Error: {}", runId, e.getMessage(), e);
         }
     }
 
-    /**
-     * Get orchestrator status
-     */
     public boolean isRunning() {
         return isRunning;
     }
 
-    /**
-     * Stop the orchestrator (for graceful shutdown)
-     */
     public void stop() {
         logger.info("Stopping RunOrchestrator");
         isRunning = false;
     }
 
-    /**
-     * Start the orchestrator
-     */
     public void start() {
         logger.info("Starting RunOrchestrator");
         isRunning = true;
     }
 
-    /**
-     * Get statistics about runs
-     */
     public RunStatistics getStatistics() {
         try {
-            long pendingCount = runService.getRunsByStatus(Run.RunStatus.PENDING).size();
-            long runningCount = runService.getRunsByStatus(Run.RunStatus.RUNNING).size();
-            long doneCount = runService.getRunsByStatus(Run.RunStatus.DONE).size();
-            long failedCount = runService.getRunsByStatus(Run.RunStatus.FAILED).size();
+            long pendingCount = runService.getRunCountByStatus(RunStatus.PENDING);
+            long runningCount = runService.getRunCountByStatus(RunStatus.RUNNING);
+            long doneCount = runService.getRunCountByStatus(RunStatus.DONE);
+            long failedCount = runService.getRunCountByStatus(RunStatus.FAILED);
 
             return new RunStatistics(pendingCount, runningCount, doneCount, failedCount);
         } catch (Exception e) {
@@ -233,9 +270,6 @@ public class RunOrchestrator {
         }
     }
 
-    /**
-     * Inner class to hold run statistics
-     */
     public static class RunStatistics {
         private final long pending;
         private final long running;

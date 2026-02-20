@@ -2,14 +2,21 @@ package com.rajathgoku.agentic.backend.entity;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
-@Table(name = "artifacts")
+@Table(name = "artifacts", indexes = {
+    @Index(name = "idx_artifacts_step_id", columnList = "step_id"),
+    @Index(name = "idx_artifacts_id", columnList = "id"),
+    @Index(name = "idx_artifacts_type", columnList = "type"),
+    @Index(name = "idx_artifacts_created_at", columnList = "created_at")
+})
 public class Artifact {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "UUID")
+    private UUID id;
 
     @Column(nullable = false)
     private String name;
@@ -20,18 +27,21 @@ public class Artifact {
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    @Column
+    @Column(name = "file_path")
     private String filePath;
 
     @Column
     private Long size;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "step_id", nullable = false)
+    @JoinColumn(name = "step_id", nullable = false, columnDefinition = "UUID")
     private Step step;
 
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
 
     // Constructors
     public Artifact() {}
@@ -44,11 +54,11 @@ public class Artifact {
     }
 
     // Getters and Setters
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(UUID id) {
         this.id = id;
     }
 
@@ -106,5 +116,18 @@ public class Artifact {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = Instant.now();
     }
 }

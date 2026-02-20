@@ -1,19 +1,20 @@
 package com.rajathgoku.agentic.backend.dto;
 
 import jakarta.validation.constraints.NotNull;
+import java.util.UUID;
 
 public class CreateRunRequest {
 
     @NotNull
-    private Long taskId;
+    private UUID taskId;
 
     private String status = "PENDING";
 
-    public Long getTaskId() {
+    public UUID getTaskId() {
         return taskId;
     }
 
-    public void setTaskId(Long taskId) {
+    public void setTaskId(UUID taskId) {
         this.taskId = taskId;
     }
 

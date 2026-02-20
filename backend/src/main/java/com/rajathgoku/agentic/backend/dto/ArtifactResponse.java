@@ -2,15 +2,17 @@ package com.rajathgoku.agentic.backend.dto;
 
 import com.rajathgoku.agentic.backend.entity.Artifact;
 import java.time.Instant;
+import java.util.UUID;
 
 public class ArtifactResponse {
-    private Long id;
+    private UUID id;
     private String name;
     private String type;
     private String content;
     private String filePath;
     private Long size;
     private Instant createdAt;
+    private Instant updatedAt;
 
     // Constructors
     public ArtifactResponse() {}
@@ -23,14 +25,15 @@ public class ArtifactResponse {
         this.filePath = artifact.getFilePath();
         this.size = artifact.getSize();
         this.createdAt = artifact.getCreatedAt();
+        this.updatedAt = artifact.getUpdatedAt();
     }
 
     // Getters and Setters
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(UUID id) {
         this.id = id;
     }
 
@@ -80,5 +83,13 @@ public class ArtifactResponse {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

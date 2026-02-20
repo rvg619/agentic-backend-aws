@@ -1,28 +1,29 @@
 package com.rajathgoku.agentic.backend.dto;
 
 import java.time.Instant;
+import java.util.UUID;
 
 public class RunResponse {
 
-    private Long id;
-    private Long taskId;
+    private UUID id;
+    private UUID taskId;
     private String status;
     private Instant createdAt;
     private Instant updatedAt;
 
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(UUID id) {
         this.id = id;
     }
 
-    public Long getTaskId() {
+    public UUID getTaskId() {
         return taskId;
     }
 
-    public void setTaskId(Long taskId) {
+    public void setTaskId(UUID taskId) {
         this.taskId = taskId;
     }
 

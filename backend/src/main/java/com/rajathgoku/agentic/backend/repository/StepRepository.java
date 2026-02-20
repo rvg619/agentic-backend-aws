@@ -7,14 +7,15 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.UUID;
 
 @Repository
-public interface StepRepository extends JpaRepository<Step, Long> {
+public interface StepRepository extends JpaRepository<Step, UUID> {
     
-    List<Step> findByRunIdOrderByCreatedAt(Long runId);
+    List<Step> findByRunIdOrderByCreatedAt(UUID runId);
     
-    List<Step> findByRunId(Long runId);
+    List<Step> findByRunId(UUID runId);
     
     @Query("SELECT s FROM Step s WHERE s.run.id = :runId ORDER BY s.createdAt ASC")
-    List<Step> findStepsByRunId(@Param("runId") Long runId);
+    List<Step> findStepsByRunId(@Param("runId") UUID runId);
 }
