@@ -20,6 +20,9 @@ public class Task {
     @Column(nullable = false)
     private String title;
 
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
     @Column(nullable = false)
     private String status;
 
@@ -34,6 +37,12 @@ public class Task {
 
     public Task(String title, String status) {
         this.title = title;
+        this.status = status;
+    }
+
+    public Task(String title, String description, String status) {
+        this.title = title;
+        this.description = description;
         this.status = status;
     }
 
@@ -52,6 +61,14 @@ public class Task {
 
     public void setTitle(String title) {
         this.title = title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public String getStatus() {

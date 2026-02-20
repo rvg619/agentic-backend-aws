@@ -9,6 +9,7 @@ import java.util.UUID;
     @Index(name = "idx_artifacts_step_id", columnList = "step_id"),
     @Index(name = "idx_artifacts_id", columnList = "id"),
     @Index(name = "idx_artifacts_type", columnList = "type"),
+    @Index(name = "idx_artifacts_mime_type", columnList = "mime_type"),
     @Index(name = "idx_artifacts_created_at", columnList = "created_at")
 })
 public class Artifact {
@@ -18,11 +19,18 @@ public class Artifact {
     @Column(columnDefinition = "UUID")
     private UUID id;
 
+    // Add version field for optimistic locking to prevent race conditions
+    @Version
+    private Long version;
+
     @Column(nullable = false)
     private String name;
 
     @Column(nullable = false)
     private String type;
+
+    @Column(name = "mime_type")
+    private String mimeType;
 
     @Column(columnDefinition = "TEXT")
     private String content;
@@ -62,6 +70,14 @@ public class Artifact {
         this.id = id;
     }
 
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
+    }
+
     public String getName() {
         return name;
     }
@@ -76,6 +92,14 @@ public class Artifact {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public String getMimeType() {
+        return mimeType;
+    }
+
+    public void setMimeType(String mimeType) {
+        this.mimeType = mimeType;
     }
 
     public String getContent() {

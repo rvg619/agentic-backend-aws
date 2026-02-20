@@ -183,6 +183,32 @@ public class RunService {
         return instanceId;
     }
 
+    /**
+     * Get stale RUNNING runs for crash recovery
+     */
+    public List<Run> getStaleRunningRuns(Duration timeout) {
+        Instant threshold = Instant.now().minus(timeout);
+        return runRepository.findStaleRunningRuns(RunStatus.RUNNING, threshold);
+    }
+
+    /**
+     * Reset a run back to PENDING status for retry
+     */
+    @Transactional
+    public Run resetRunToPending(UUID runId) {
+        Optional<Run> runOpt = runRepository.findById(runId);
+        if (runOpt.isPresent()) {
+            Run run = runOpt.get();
+            run.setStatus(RunStatus.PENDING);
+            run.setUpdatedAt(Instant.now());
+            run.setClaimedBy(null);
+            Run updated = runRepository.save(run);
+            logger.info("Reset run ID: {} back to PENDING for retry", runId);
+            return updated;
+        }
+        throw new RuntimeException("Run not found: " + runId);
+    }
+
     private String generateInstanceId() {
         try {
             String hostname = InetAddress.getLocalHost().getHostName();

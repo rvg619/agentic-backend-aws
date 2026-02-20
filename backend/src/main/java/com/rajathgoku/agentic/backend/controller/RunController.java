@@ -121,8 +121,8 @@ public class RunController {
             "run", toResponse(run),
             "steps", steps.stream().map(StepResponse::new).collect(Collectors.toList()),
             "totalSteps", steps.size(),
-            "completedSteps", steps.stream().mapToLong(s -> s.getStatus() == com.rajathgoku.agentic.backend.entity.StepStatus.DONE ? 1 : 0).sum(),
-            "failedSteps", steps.stream().mapToLong(s -> s.getStatus() == com.rajathgoku.agentic.backend.entity.StepStatus.FAILED ? 1 : 0).sum(),
+            "completedSteps", steps.stream().mapToLong(s -> s.getStatus() == Step.StepStatus.DONE ? 1 : 0).sum(),
+            "failedSteps", steps.stream().mapToLong(s -> s.getStatus() == Step.StepStatus.FAILED ? 1 : 0).sum(),
             "totalArtifacts", steps.stream().mapToLong(s -> s.getArtifacts().size()).sum()
         );
         

@@ -63,6 +63,7 @@ CREATE TABLE artifacts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     type VARCHAR(100) NOT NULL,
+    mime_type VARCHAR(100),
     content TEXT,
     file_path VARCHAR(500),
     size BIGINT,
@@ -77,6 +78,7 @@ CREATE TABLE artifacts (
 CREATE INDEX idx_artifacts_step_id ON artifacts(step_id);
 CREATE INDEX idx_artifacts_id ON artifacts(id);
 CREATE INDEX idx_artifacts_type ON artifacts(type);
+CREATE INDEX idx_artifacts_mime_type ON artifacts(mime_type);
 CREATE INDEX idx_artifacts_created_at ON artifacts(created_at);
 
 -- Create enum-like constraints for status fields
@@ -97,3 +99,4 @@ COMMENT ON COLUMN runs.started_at IS 'When the run execution actually started';
 COMMENT ON COLUMN runs.finished_at IS 'When the run execution completed (success or failure)';
 COMMENT ON COLUMN artifacts.size IS 'Size of the artifact content in bytes';
 COMMENT ON COLUMN artifacts.file_path IS 'Optional file system path for stored artifacts';
+COMMENT ON COLUMN artifacts.mime_type IS 'MIME type of the artifact content for proper handling';

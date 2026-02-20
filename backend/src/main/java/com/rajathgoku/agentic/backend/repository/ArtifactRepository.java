@@ -1,6 +1,7 @@
 package com.rajathgoku.agentic.backend.repository;
 
 import com.rajathgoku.agentic.backend.entity.Artifact;
+import com.rajathgoku.agentic.backend.entity.Step;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,4 +19,10 @@ public interface ArtifactRepository extends JpaRepository<Artifact, UUID> {
     List<Artifact> findArtifactsByStepId(@Param("stepId") UUID stepId);
     
     List<Artifact> findByType(String type);
+    
+    // Add missing methods needed by ArtifactService
+    List<Artifact> findByStepOrderByCreatedAt(Step step);
+    
+    @Query("SELECT a FROM Artifact a WHERE a.step.run.id = :runId ORDER BY a.createdAt ASC")
+    List<Artifact> findByStepRunIdOrderByCreatedAt(@Param("runId") UUID runId);
 }
