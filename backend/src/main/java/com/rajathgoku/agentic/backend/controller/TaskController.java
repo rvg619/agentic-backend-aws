@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/tasks")
+@CrossOrigin(origins = {"http://localhost:3000", "http://127.0.0.1:3000"})
 public class TaskController {
 
     private final TaskService taskService;
@@ -24,7 +25,12 @@ public class TaskController {
 
     @PostMapping
     public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody CreateTaskRequest request) {
-        Task created = taskService.create(request.getTitle());
+        Task created;
+        if (request.getDescription() != null && !request.getDescription().trim().isEmpty()) {
+            created = taskService.create(request.getTitle(), request.getDescription());
+        } else {
+            created = taskService.create(request.getTitle());
+        }
         return ResponseEntity.ok(toResponse(created));
     }
 
@@ -57,6 +63,7 @@ public class TaskController {
         TaskResponse r = new TaskResponse();
         r.setId(task.getId());
         r.setTitle(task.getTitle());
+        r.setDescription(task.getDescription());
         r.setStatus(task.getStatus());
         r.setCreatedAt(task.getCreatedAt());
         r.setUpdatedAt(task.getUpdatedAt());

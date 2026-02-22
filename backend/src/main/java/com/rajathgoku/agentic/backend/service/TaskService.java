@@ -18,8 +18,8 @@ public class TaskService {
     private final List<Task> tasks = new ArrayList<>();
 
     public Task createTask(Task task) {
-        tasks.add(task);
-        return task;
+        // Save to database instead of in-memory list
+        return repository.save(task);
     }
 
     public List<Task> getAllTasks() {
@@ -37,6 +37,14 @@ public class TaskService {
     public Task create(String title) {
         Task task = new Task();
         task.setTitle(title);
+        task.setStatus("PENDING");
+        return repository.save(task);
+    }
+    
+    public Task create(String title, String description) {
+        Task task = new Task();
+        task.setTitle(title);
+        task.setDescription(description);
         task.setStatus("PENDING");
         return repository.save(task);
     }

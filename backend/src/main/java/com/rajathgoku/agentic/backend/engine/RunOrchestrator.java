@@ -179,17 +179,33 @@ public class RunOrchestrator {
             logger.info("Worker #{} processing task: {}", workerId, taskDescription);
 
             // === PHASE 1: PLANNING ===
-            Step planningStep = executeStepWithRetry(run, "AI Planning Phase", 1, () -> {
-                logger.info("Worker #{} Phase 1: Planning with AI agent for run ID: {}", workerId, run.getId());
-                return plannerAgent.createPlan(taskDescription);
-            }).get();
-
-            String executionPlan = planningStep.getResult();
-            artifactService.createTextArtifact(planningStep, "execution_plan.txt", executionPlan);
-            logger.info("Worker #{} Planning completed for run ID: {}", workerId, run.getId());
+            try {
+                Step planningStep = stepService.createStep(run, "AI Planning Phase", 1);
+                Step startedPlanningStep = stepService.startStep(planningStep);
+                
+                // Create detailed text plan
+                String detailedPlan = plannerAgent.createPlan(task.getDescription());
+                artifactService.createTextArtifact(startedPlanningStep, "execution_plan.md", formatAsMarkdown(detailedPlan));
+                
+                // Create structured JSON plan
+                String jsonPlan = plannerAgent.createStructuredPlan(task.getDescription());
+                artifactService.createJsonArtifact(startedPlanningStep, "structured_plan.json", jsonPlan);
+                
+                // Create task analysis artifact
+                String analysisContent = createTaskAnalysis(task);
+                artifactService.createTextArtifact(startedPlanningStep, "task_analysis.txt", analysisContent);
+                
+                stepService.completeStep(startedPlanningStep, "Planning phase completed with multiple artifacts");
+                logger.info("Worker #{} Phase 1: Planning completed with {} artifacts for run ID: {}", 
+                           workerId, 3, run.getId());
+            } catch (Exception e) {
+                logger.error("Worker #{} Phase 1 failed for run ID: {} - {}", workerId, run.getId(), e.getMessage());
+                runService.markRunAsFailed(run.getId(), "Planning phase failed: " + e.getMessage());
+                return CompletableFuture.completedFuture(null);
+            }
 
             // === PHASE 2: SEQUENTIAL EXECUTION (Changed from parallel to avoid race conditions) ===
-            String[] planSteps = plannerAgent.breakDownPlan(executionPlan);
+            String[] planSteps = plannerAgent.breakDownPlan(taskDescription);
             List<Step> completedSteps = new ArrayList<>();
             
             // Execute steps sequentially to avoid concurrency issues
@@ -220,12 +236,28 @@ public class RunOrchestrator {
                         
                         ExecutorAgent.ExecutionResult result = executorAgent.executeWithArtifact(stepDescription, context);
                         
-                        // Store artifact for this step execution
+                        // Store multiple artifacts for this step execution
                         Step currentStep = stepService.getCurrentStepForWorker();
                         if (currentStep != null) {
+                            // Create execution log artifact
                             artifactService.createTextArtifact(currentStep, 
-                                String.format("step_%d_result.txt", stepIndex + 1), 
-                                result.artifactContent());
+                                String.format("step_%d_execution.log", stepIndex + 1), 
+                                result.executionLog());
+                            
+                            // Create code artifact if available
+                            if (result.codeArtifact() != null && !result.codeArtifact().isEmpty()) {
+                                String fileExtension = determineFileExtension(stepDescription);
+                                artifactService.createTextArtifact(currentStep, 
+                                    String.format("step_%d_code%s", stepIndex + 1, fileExtension), 
+                                    result.codeArtifact());
+                            }
+                            
+                            // Create documentation artifact
+                            if (result.documentation() != null && !result.documentation().isEmpty()) {
+                                artifactService.createTextArtifact(currentStep, 
+                                    String.format("step_%d_documentation.md", stepIndex + 1), 
+                                    result.documentation());
+                            }
                         }
                         
                         return result.result();
@@ -249,18 +281,27 @@ public class RunOrchestrator {
             // === PHASE 3: CRITIQUE & EVALUATION ===
             Step critiqueStep = executeStepWithRetry(run, "AI Critique & Evaluation", planSteps.length + 2, () -> {
                 logger.info("Worker #{} Phase 3: Critiquing execution with AI agent for run ID: {}", workerId, run.getId());
-                String overallEvaluation = criticAgent.evaluateRun(taskDescription, stepResults);
-                boolean isSuccessful = criticAgent.isRunSuccessful(taskDescription, stepResults, overallEvaluation);
                 
-                // Store evaluation report
+                // Use enhanced critic agent to create comprehensive artifacts
+                CriticAgent.CriticResult criticResult = criticAgent.evaluateRunWithArtifacts(taskDescription, stepResults);
+                
+                // Store multiple critique artifacts
                 Step currentStep = stepService.getCurrentStepForWorker();
                 if (currentStep != null) {
-                    artifactService.createJsonArtifact(currentStep, "evaluation_report.json", 
-                        String.format("{\"success\": %b, \"evaluation\": \"%s\", \"completedSteps\": %d}", 
-                            isSuccessful, overallEvaluation.replace("\"", "\\\""), planSteps.length));
+                    // Create detailed evaluation report
+                    artifactService.createTextArtifact(currentStep, "evaluation_report.md", criticResult.detailedReport());
+                    
+                    // Create quality metrics JSON
+                    artifactService.createJsonArtifact(currentStep, "quality_metrics.json", criticResult.qualityMetrics());
+                    
+                    // Create improvement suggestions
+                    artifactService.createTextArtifact(currentStep, "improvement_suggestions.md", criticResult.improvementSuggestions());
+                    
+                    // Create executive summary
+                    artifactService.createTextArtifact(currentStep, "executive_summary.md", criticResult.executiveSummary());
                 }
                 
-                return overallEvaluation + "|SUCCESS:" + isSuccessful;
+                return criticResult.evaluation() + "|SUCCESS:" + criticResult.isSuccessful();
             }).get();
 
             // Parse critique results
@@ -309,14 +350,18 @@ public class RunOrchestrator {
                     Step startedStep = stepService.startStep(step);
                     logger.debug("Starting step execution (attempt {}/{}): {}", attempt, maxRetries, stepName);
                     
-                    // Set step context for worker thread
-                    stepService.setCurrentStepForWorker(startedStep);
-                    
                     try {
-                        // Execute step with timeout in a separate thread to avoid blocking
+                        // Execute step with timeout - PASS the step directly to avoid thread issues
                         CompletableFuture<String> stepExecution = CompletableFuture.supplyAsync(() -> {
                             try {
-                                return executor.execute();
+                                // Set step context in THIS worker thread
+                                stepService.setCurrentStepForWorker(startedStep);
+                                try {
+                                    return executor.execute();
+                                } finally {
+                                    // Clear step context in THIS worker thread
+                                    stepService.clearCurrentStepForWorker();
+                                }
                             } catch (Exception e) {
                                 throw new RuntimeException("Step execution failed", e);
                             }
@@ -329,9 +374,9 @@ public class RunOrchestrator {
                         logger.debug("Step completed successfully on attempt {}: {}", attempt, stepName);
                         return completedStep;
                         
-                    } finally {
-                        // Always clear step context
-                        stepService.clearCurrentStepForWorker();
+                    } catch (Exception e) {
+                        // Don't clear step context here since it's handled in the worker thread
+                        throw e;
                     }
                     
                 } catch (TimeoutException e) {
@@ -475,5 +520,118 @@ public class RunOrchestrator {
                                pending, running, done, failed, getTotal(), 
                                activeWorkers, activeThreads, totalThreads);
         }
+    }
+
+    /**
+     * Format plan content as Markdown for better readability
+     */
+    private String formatAsMarkdown(String content) {
+        StringBuilder markdown = new StringBuilder();
+        markdown.append("# Execution Plan\n\n");
+        
+        String[] lines = content.split("\n");
+        boolean inSection = false;
+        
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                markdown.append("\n");
+                continue;
+            }
+            
+            // Detect section headers
+            if (trimmed.matches("\\d+\\..+") || trimmed.contains("Overview") || 
+                trimmed.contains("Objectives") || trimmed.contains("Deliverables") || 
+                trimmed.contains("Success Criteria") || trimmed.contains("Risk")) {
+                markdown.append("\n## ").append(trimmed).append("\n\n");
+                inSection = true;
+            }
+            // Detect numbered steps
+            else if (trimmed.matches("Step \\d+:.*")) {
+                markdown.append("### ").append(trimmed).append("\n\n");
+            }
+            // Detect bullet points
+            else if (trimmed.startsWith("-") || trimmed.startsWith("•")) {
+                markdown.append("- ").append(trimmed.substring(1).trim()).append("\n");
+            }
+            // Regular content
+            else {
+                markdown.append(trimmed).append("\n\n");
+            }
+        }
+        
+        return markdown.toString();
+    }
+    
+    /**
+     * Create comprehensive task analysis
+     */
+    private String createTaskAnalysis(Task task) {
+        StringBuilder analysis = new StringBuilder();
+        analysis.append("=== TASK ANALYSIS REPORT ===\n\n");
+        analysis.append("Task ID: ").append(task.getId()).append("\n");
+        analysis.append("Title: ").append(task.getTitle()).append("\n");
+        analysis.append("Created: ").append(task.getCreatedAt()).append("\n\n");
+        
+        analysis.append("DESCRIPTION:\n");
+        analysis.append(task.getDescription()).append("\n\n");
+        
+        analysis.append("COMPLEXITY ASSESSMENT:\n");
+        String description = task.getDescription().toLowerCase();
+        if (description.contains("simple") || description.contains("basic")) {
+            analysis.append("- Complexity Level: LOW\n");
+            analysis.append("- Estimated Duration: 15-30 minutes\n");
+        } else if (description.contains("complex") || description.contains("advanced")) {
+            analysis.append("- Complexity Level: HIGH\n");
+            analysis.append("- Estimated Duration: 2-4 hours\n");
+        } else {
+            analysis.append("- Complexity Level: MEDIUM\n");
+            analysis.append("- Estimated Duration: 45-90 minutes\n");
+        }
+        
+        analysis.append("- Required Skills: ");
+        if (description.contains("code") || description.contains("programming")) {
+            analysis.append("Programming, ");
+        }
+        if (description.contains("design") || description.contains("ui")) {
+            analysis.append("Design, ");
+        }
+        if (description.contains("analysis") || description.contains("research")) {
+            analysis.append("Analysis, ");
+        }
+        analysis.append("Problem-solving\n\n");
+        
+        analysis.append("RESOURCE REQUIREMENTS:\n");
+        analysis.append("- AI Agents: Planner, Executor, Critic\n");
+        analysis.append("- Estimated Tokens: 2,000-5,000\n");
+        analysis.append("- Expected Artifacts: 3-8 files\n\n");
+        
+        analysis.append("=== END ANALYSIS ===\n");
+        return analysis.toString();
+    }
+
+    /**
+     * Determine appropriate file extension based on step description
+     */
+    private String determineFileExtension(String stepDescription) {
+        String description = stepDescription.toLowerCase();
+        
+        if (description.contains("tic tac toe") || description.contains("html") || description.contains("web")) {
+            return ".html";
+        } else if (description.contains("python") || description.contains("script")) {
+            return ".py";
+        } else if (description.contains("java")) {
+            return ".java";
+        } else if (description.contains("javascript") || description.contains("js")) {
+            return ".js";
+        } else if (description.contains("api") || description.contains("rest")) {
+            return ".js";
+        } else if (description.contains("css") || description.contains("style")) {
+            return ".css";
+        } else if (description.contains("sql") || description.contains("database")) {
+            return ".sql";
+        }
+        
+        return ".txt"; // Default
     }
 }
