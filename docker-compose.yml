@@ -28,10 +28,10 @@ services:
       - SPRING_DATASOURCE_USERNAME=agentic
       - SPRING_DATASOURCE_PASSWORD=agentic
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      # AWS Credentials - these will be passed from your host environment
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      # Mount AWS credentials from your local machine
+      - ~/.aws:/root/.aws:ro
     depends_on:
       postgres:
         condition: service_healthy

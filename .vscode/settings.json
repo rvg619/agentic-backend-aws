@@ -1,3 +1,21 @@
 {
-    "java.configuration.updateBuildConfiguration": "interactive"
+    "java.configuration.updateBuildConfiguration": "interactive",
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.project.sourcePaths": [
+        "backend/src/main/java"
+    ],
+    "java.project.referencedLibraries": [
+        "backend/lib/**/*.jar"
+    ],
+    "java.project.outputPath": "backend/target/classes",
+    "java.configuration.workspaceFolders": [
+        "backend"
+    ],
+    "files.exclude": {
+        "**/target": true,
+        "**/.classpath": true,
+        "**/.project": true,
+        "**/.settings": true,
+        "**/.factorypath": true
+    }
 }

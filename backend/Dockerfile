@@ -1,30 +1,33 @@
-FROM amazoncorretto:17-alpine
+# Use Maven image that already has Maven installed
+FROM maven:3.9.6-amazoncorretto-17 AS builder
 
-WORKDIR /app
+WORKDIR /build
 
-# Copy the Maven wrapper and pom.xml first for better caching
-COPY mvnw .
-COPY mvnw.cmd .
-COPY .mvn .mvn
+# Copy pom.xml first for dependency caching
 COPY pom.xml .
 
-# Make mvnw executable
-RUN chmod +x ./mvnw
-
 # Download dependencies
-RUN ./mvnw dependency:go-offline -B
+RUN mvn dependency:go-offline -B
 
-# Copy the source code
+# Copy source code
 COPY src ./src
 
 # Build the application
-RUN ./mvnw clean package -DskipTests
+RUN mvn clean package -DskipTests
 
-# Find the JAR file and copy it to a known location
-RUN find target -name "*.jar" -exec cp {} app.jar \;
+# Runtime stage with just JRE
+FROM amazoncorretto:17
 
-# Expose the port
+WORKDIR /app
+
+# Copy JAR from build stage
+COPY --from=builder /build/target/*.jar app.jar
+
+# Expose port
 EXPOSE 8080
 
+# Set JVM options for container environment
+ENV JAVA_OPTS="-Xmx512m -Xms256m"
+
 # Run the application
-CMD ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]

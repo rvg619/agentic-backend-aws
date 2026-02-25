@@ -5,14 +5,14 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.0.2</version>
+		<version>4.0.3</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.rajathgoku.agentic</groupId>
 	<artifactId>backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>backend</name>
-	<description>Demo project for Spring Boot</description>
+	<description>Agentic AI Multi-Agent Orchestration System with Ollama</description>
 	<url/>
 	<licenses>
 		<license/>
@@ -28,21 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>17</java.version>
-		<aws.sdk.version>2.21.29</aws.sdk.version>
 	</properties>
-
-	<dependencyManagement>
-		<dependencies>
-			<!-- AWS SDK BOM for consistent versions -->
-			<dependency>
-				<groupId>software.amazon.awssdk</groupId>
-				<artifactId>bom</artifactId>
-				<version>${aws.sdk.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
-		</dependencies>
-	</dependencyManagement>
 
 	<dependencies>
 		<!-- REST API -->
@@ -61,12 +47,6 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
-		</dependency>
-
-		<!-- AWS Bedrock Runtime -->
-		<dependency>
-			<groupId>software.amazon.awssdk</groupId>
-			<artifactId>bedrockruntime</artifactId>
 		</dependency>
 
 			<!-- Jackson for JSON processing -->
@@ -100,6 +80,14 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		
+		<!-- H2 Database for Testing -->
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
+		</dependency>
+		
 		<dependency>
     		<groupId>org.springframework.boot</groupId>
     		<artifactId>spring-boot-starter-actuator</artifactId>
@@ -151,7 +139,114 @@
 					</dependency>
 				</dependencies>
 			</plugin>
+			
+			<!-- JavaDoc Generation Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.6.3</version>
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                    <encoding>UTF-8</encoding>
+                    <charset>UTF-8</charset>
+                    <docencoding>UTF-8</docencoding>
+                    <show>private</show>
+                    <nohelp>true</nohelp>
+                    <failOnError>false</failOnError>
+                    <failOnWarnings>false</failOnWarnings>
+                    <additionalJOptions>
+                        <additionalJOption>-Xdoclint:none</additionalJOption>
+                    </additionalJOptions>
+                    <windowTitle>Agentic AI Backend API Documentation</windowTitle>
+                    <doctitle>Agentic AI Multi-Agent Orchestration System</doctitle>
+                    <header>&lt;b&gt;Agentic AI System v${project.version}&lt;/b&gt;</header>
+                    <footer>&lt;b&gt;Agentic AI System v${project.version}&lt;/b&gt;</footer>
+                    <groups>
+                        <group>
+                            <title>AI Agents</title>
+                            <packages>com.rajathgoku.agentic.backend.agent*</packages>
+                        </group>
+                        <group>
+                            <title>Orchestration Engine</title>
+                            <packages>com.rajathgoku.agentic.backend.engine*</packages>
+                        </group>
+                        <group>
+                            <title>REST Controllers</title>
+                            <packages>com.rajathgoku.agentic.backend.controller*</packages>
+                        </group>
+                        <group>
+                            <title>Business Services</title>
+                            <packages>com.rajathgoku.agentic.backend.service*</packages>
+                        </group>
+                        <group>
+                            <title>Data Layer</title>
+                            <packages>com.rajathgoku.agentic.backend.entity*:com.rajathgoku.agentic.backend.repository*</packages>
+                        </group>
+                        <group>
+                            <title>LLM Integration</title>
+                            <packages>com.rajathgoku.agentic.backend.llm*</packages>
+                        </group>
+                        <group>
+                            <title>DTOs</title>
+                            <packages>com.rajathgoku.agentic.backend.dto*</packages>
+                        </group>
+                    </groups>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>aggregate</id>
+                        <goals>
+                            <goal>aggregate</goal>
+                        </goals>
+                        <phase>site</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            
+            <!-- Site Documentation Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-site-plugin</artifactId>
+                <version>4.0.0-M13</version>
+                <configuration>
+                    <locales>en</locales>
+                </configuration>
+            </plugin>
+            
+            <!-- Surefire Plugin for Test Reports -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
 		</plugins>
 	</build>
-
+	
+	<!-- Reporting for Documentation Site -->
+    <reporting>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-project-info-reports-plugin</artifactId>
+                <version>3.5.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.6.3</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-report-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+        </plugins>
+    </reporting>
 </project>

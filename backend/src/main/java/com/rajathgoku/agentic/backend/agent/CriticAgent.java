@@ -1,23 +1,91 @@
 package com.rajathgoku.agentic.backend.agent;
-
 import com.rajathgoku.agentic.backend.llm.LlmClient;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+/**
+ * The CriticAgent is responsible for evaluating and critiquing the quality of task executions
+ * within the agentic AI system. It provides comprehensive analysis of step results, overall
+ * run evaluations, and generates detailed reports with recommendations for improvement.
+ * 
+ * <p>This agent serves as the quality assurance component in the multi-agent orchestration
+ * system, working alongside {@link com.rajathgoku.agentic.backend.agent.PlannerAgent} and
+ * {@link com.rajathgoku.agentic.backend.agent.ExecutorAgent} to ensure high-quality outputs.</p>
+ * 
+ * <h2>Key Responsibilities:</h2>
+ * <ul>
+ *   <li>Review individual step execution results</li>
+ *   <li>Evaluate overall task completion quality</li>
+ *   <li>Generate comprehensive evaluation reports</li>
+ *   <li>Provide improvement recommendations</li>
+ *   <li>Determine success/failure status using AI-powered analysis</li>
+ * </ul>
+ * 
+ * <h2>Integration:</h2>
+ * <p>The CriticAgent integrates with the {@link com.rajathgoku.agentic.backend.engine.RunOrchestrator}
+ * as the final phase of task execution, providing quality assessment and artifact generation.</p>
+ * 
+ * <h2>Usage Example:</h2>
+ * <pre>{@code
+ * CriticAgent critic = new CriticAgent(llmClient);
+ * String[] stepResults = {"Step 1 completed", "Step 2 implemented successfully"};
+ * CriticResult result = critic.evaluateRunWithArtifacts("Create a web page", stepResults);
+ * 
+ * if (result.isSuccessful()) {
+ *     System.out.println("Task completed successfully: " + result.evaluation());
+ * }
+ * }</pre>
+ * 
+ * @author Rajath Gokhale
+ * @version 1.0
+ * @since 1.0
+ * @see com.rajathgoku.agentic.backend.engine.RunOrchestrator
+ * @see com.rajathgoku.agentic.backend.agent.PlannerAgent
+ * @see com.rajathgoku.agentic.backend.agent.ExecutorAgent
+ */
 @Component
+@SuppressWarnings({"unused", "java:S1220"}) // Suppress IDE warnings about package mismatch
 public class CriticAgent {
     
+    /** The LLM client used for AI-powered evaluation and analysis */
     private final LlmClient llmClient;
     
-    @Autowired
+    /**
+     * Constructs a new CriticAgent with the specified LLM client.
+     * 
+     * @param llmClient the LLM client for AI-powered evaluations, must not be null
+     * @throws IllegalArgumentException if llmClient is null
+     */
     public CriticAgent(LlmClient llmClient) {
+        if (llmClient == null) {
+            throw new IllegalArgumentException("LlmClient cannot be null");
+        }
         this.llmClient = llmClient;
     }
     
     /**
-     * Review and critique a step execution result
+     * Reviews and critiques a single step execution result.
+     * 
+     * <p>This method provides detailed analysis of individual step performance,
+     * including quality assessment, completeness evaluation, and specific
+     * suggestions for improvement.</p>
+     * 
+     * @param stepDescription a clear description of what the step was supposed to accomplish
+     * @param stepResult the actual result or output produced by the step execution
+     * @return a detailed critique and analysis of the step execution quality
+     * @throws IllegalArgumentException if stepDescription or stepResult is null or empty
+     * @throws RuntimeException if LLM client fails to generate response
+     * 
+     * @see #evaluateRun(String, String[])
      */
     public String reviewStep(String stepDescription, String stepResult) {
+        // Validate input parameters
+        if (stepDescription == null || stepDescription.trim().isEmpty()) {
+            throw new IllegalArgumentException("Step description cannot be null or empty");
+        }
+        if (stepResult == null || stepResult.trim().isEmpty()) {
+            throw new IllegalArgumentException("Step result cannot be null or empty");
+        }
+
         String prompt = String.format(
             "You are a critic agent. Review the following step execution:\n\n" +
             "Step: %s\n\n" +
@@ -27,13 +95,38 @@ public class CriticAgent {
             stepResult
         );
         
-        return llmClient.generateResponse(prompt);
+        try {
+            return llmClient.generateResponse(prompt);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate step review: " + e.getMessage(), e);
+        }
     }
     
     /**
-     * Evaluate the overall run execution
+     * Evaluates the overall execution of a complete task run.
+     * 
+     * <p>This method analyzes all step results collectively to provide a comprehensive
+     * assessment of task completion quality. It considers the coherence between steps,
+     * overall goal achievement, and identifies areas for improvement.</p>
+     * 
+     * @param taskDescription the original task description that was executed
+     * @param stepResults array of results from each execution step, may contain null elements
+     * @return a comprehensive evaluation of the overall run quality and completeness
+     * @throws IllegalArgumentException if taskDescription is null or empty, or if stepResults is null
+     * @throws RuntimeException if LLM client fails to generate response
+     * 
+     * @see #isRunSuccessful(String, String[], String)
+     * @see #evaluateRunWithArtifacts(String, String[])
      */
     public String evaluateRun(String taskDescription, String[] stepResults) {
+        // Input validation
+        if (taskDescription == null || taskDescription.trim().isEmpty()) {
+            throw new IllegalArgumentException("Task description cannot be null or empty");
+        }
+        if (stepResults == null) {
+            throw new IllegalArgumentException("Step results array cannot be null");
+        }
+
         StringBuilder resultsBuilder = new StringBuilder();
         for (int i = 0; i < stepResults.length; i++) {
             if (stepResults[i] != null && !stepResults[i].trim().isEmpty()) {
@@ -50,11 +143,29 @@ public class CriticAgent {
             resultsBuilder.toString()
         );
         
-        return llmClient.generateResponse(prompt);
+        try {
+            return llmClient.generateResponse(prompt);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate run evaluation: " + e.getMessage(), e);
+        }
     }
     
     /**
-     * Determine if the run should be marked as successful
+     * Determines if the run should be marked as successful.
+     * 
+     * <p>This method uses a heuristic approach to evaluate the success of the task run.
+     * It considers the quality of step results and the overall evaluation to make a
+     * success/failure decision.</p>
+     * 
+     * @param taskDescription the original task description that was executed
+     * @param stepResults array of results from each execution step, may contain null elements
+     * @param overallEvaluation the overall evaluation of the task run
+     * @return true if the run is considered successful, false otherwise
+     * @throws IllegalArgumentException if taskDescription, stepResults, or overallEvaluation is null
+     * @throws RuntimeException if LLM client fails to generate response
+     * 
+     * @see #evaluateRun(String, String[])
+     * @see #evaluateRunWithArtifacts(String, String[])
      */
     public boolean isRunSuccessful(String taskDescription, String[] stepResults, String overallEvaluation) {
         // Simple heuristic - in a real implementation, this could use LLM for more sophisticated analysis
@@ -95,7 +206,14 @@ public class CriticAgent {
     }
     
     /**
-     * Improved heuristic fallback for success evaluation
+     * Improved heuristic fallback for success evaluation.
+     * 
+     * <p>This method provides a fallback mechanism for evaluating task success using
+     * improved keyword analysis and heuristic rules when the LLM client fails.</p>
+     * 
+     * @param stepResults array of results from each execution step, may contain null elements
+     * @param overallEvaluation the overall evaluation of the task run
+     * @return true if the run is considered successful, false otherwise
      */
     private boolean evaluateSuccessWithImprovedHeuristic(String[] stepResults, String overallEvaluation) {
         // Check if most steps completed successfully (improved keyword analysis)
@@ -139,7 +257,18 @@ public class CriticAgent {
     }
     
     /**
-     * Evaluate run with comprehensive artifact creation
+     * Evaluates a run with comprehensive artifact creation.
+     * 
+     * <p>This method provides a detailed evaluation of the task run, including
+     * comprehensive critique artifacts such as detailed reports, quality metrics,
+     * improvement suggestions, and executive summaries.</p>
+     * 
+     * @param taskDescription the original task description that was executed
+     * @param stepResults array of results from each execution step, may contain null elements
+     * @return a CriticResult object containing the evaluation and generated artifacts
+     * @throws IllegalArgumentException if taskDescription or stepResults is null
+     * 
+     * @see CriticResult
      */
     public CriticResult evaluateRunWithArtifacts(String taskDescription, String[] stepResults) {
         String evaluation = evaluateRun(taskDescription, stepResults);
@@ -155,7 +284,17 @@ public class CriticAgent {
     }
     
     /**
-     * Create detailed evaluation report
+     * Creates a detailed evaluation report.
+     * 
+     * <p>This method generates a comprehensive report detailing the task execution,
+     * including step-by-step analysis, overall evaluation, quality indicators, and
+     * recommendations for improvement.</p>
+     * 
+     * @param taskDescription the original task description that was executed
+     * @param stepResults array of results from each execution step, may contain null elements
+     * @param evaluation the overall evaluation of the task run
+     * @param isSuccessful true if the run is considered successful, false otherwise
+     * @return a detailed evaluation report as a string
      */
     private String createDetailedEvaluationReport(String taskDescription, String[] stepResults, String evaluation, boolean isSuccessful) {
         StringBuilder report = new StringBuilder();
@@ -189,7 +328,13 @@ public class CriticAgent {
     }
     
     /**
-     * Generate quality metrics in JSON format
+     * Generates quality metrics in JSON format.
+     * 
+     * <p>This method calculates various quality metrics based on the step results
+     * and returns them in a JSON formatted string.</p>
+     * 
+     * @param stepResults array of results from each execution step, may contain null elements
+     * @return a JSON formatted string containing quality metrics
      */
     private String generateQualityMetrics(String[] stepResults) {
         int totalSteps = stepResults.length;
@@ -242,7 +387,14 @@ public class CriticAgent {
     }
     
     /**
-     * Generate improvement suggestions
+     * Generates improvement suggestions.
+     * 
+     * <p>This method provides specific recommendations for process optimizations,
+     * technical improvements, and best practices based on the task execution results.</p>
+     * 
+     * @param taskDescription the original task description that was executed
+     * @param stepResults array of results from each execution step, may contain null elements
+     * @return a string containing improvement suggestions
      */
     private String generateImprovementSuggestions(String taskDescription, String[] stepResults) {
         StringBuilder suggestions = new StringBuilder();
@@ -275,7 +427,15 @@ public class CriticAgent {
     }
     
     /**
-     * Generate executive summary
+     * Generates an executive summary.
+     * 
+     * <p>This method provides a high-level summary of the task execution, including
+     * key findings, strategic impact, and next steps based on the evaluation results.</p>
+     * 
+     * @param taskDescription the original task description that was executed
+     * @param evaluation the overall evaluation of the task run
+     * @param isSuccessful true if the run is considered successful, false otherwise
+     * @return an executive summary as a string
      */
     private String generateExecutiveSummary(String taskDescription, String evaluation, boolean isSuccessful) {
         StringBuilder summary = new StringBuilder();
@@ -313,7 +473,13 @@ public class CriticAgent {
     }
     
     /**
-     * Helper methods for quality assessment
+     * Helper methods for quality assessment.
+     * 
+     * <p>These methods provide utility functions for evaluating the quality of step results,
+     * calculating completion and success rates, and generating quality scores and ratings.</p>
+     * 
+     * @param stepResult the result of a single step execution
+     * @return a string representing the quality status of the step result
      */
     private String evaluateStepQuality(String stepResult) {
         if (stepResult == null || stepResult.trim().isEmpty()) return "❌ No Output";
@@ -377,7 +543,18 @@ public class CriticAgent {
     }
     
     /**
-     * Result record for critic evaluation with multiple artifacts
+     * Result record for critic evaluation with multiple artifacts.
+     * 
+     * <p>This record encapsulates the results of a comprehensive evaluation, including
+     * the overall evaluation, detailed report, quality metrics, improvement suggestions,
+     * executive summary, and success status.</p>
+     * 
+     * @param evaluation the overall evaluation of the task run
+     * @param detailedReport a detailed evaluation report
+     * @param qualityMetrics quality metrics in JSON format
+     * @param improvementSuggestions specific recommendations for improvement
+     * @param executiveSummary a high-level summary of the task execution
+     * @param isSuccessful true if the run is considered successful, false otherwise
      */
     public record CriticResult(String evaluation, String detailedReport, String qualityMetrics, 
                               String improvementSuggestions, String executiveSummary, boolean isSuccessful) {}

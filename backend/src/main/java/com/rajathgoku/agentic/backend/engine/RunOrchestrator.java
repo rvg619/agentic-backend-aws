@@ -19,7 +19,6 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.annotation.PostConstruct;
 import java.time.Duration;
@@ -31,7 +30,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -530,7 +528,6 @@ public class RunOrchestrator {
         markdown.append("# Execution Plan\n\n");
         
         String[] lines = content.split("\n");
-        boolean inSection = false;
         
         for (String line : lines) {
             String trimmed = line.trim();
@@ -544,7 +541,6 @@ public class RunOrchestrator {
                 trimmed.contains("Objectives") || trimmed.contains("Deliverables") || 
                 trimmed.contains("Success Criteria") || trimmed.contains("Risk")) {
                 markdown.append("\n## ").append(trimmed).append("\n\n");
-                inSection = true;
             }
             // Detect numbered steps
             else if (trimmed.matches("Step \\d+:.*")) {
